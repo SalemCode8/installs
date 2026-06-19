@@ -28,16 +28,40 @@ OS/arch into `/usr/local/go`.
 ./install-go.sh
 ```
 
+**Install directly from GitHub** (no clone needed):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SalemCode8/installs/main/install-go.sh | bash
+```
+
+Pass env vars before the pipe to configure it:
+
+```bash
+GO_VERSION=1.22.4 curl -fsSL https://raw.githubusercontent.com/SalemCode8/installs/main/install-go.sh | bash
+```
+
+> Piping into `bash` runs the script unreviewed. If you'd rather inspect it
+> first, download it, read it, then run it:
+>
+> ```bash
+> curl -fsSL -O https://raw.githubusercontent.com/SalemCode8/installs/main/install-go.sh
+> less install-go.sh && bash install-go.sh
+> ```
+
 **Environment variables**
 
 | Variable           | Default        | Description |
 |--------------------|----------------|-------------|
+| `GO_VERSION`       | latest stable  | Version to install, e.g. `1.22.4` or `go1.22.4`. Empty resolves the latest from go.dev |
 | `GO_INSTALL_DIR`   | `/usr/local`   | Install prefix; Go unpacks to `$GO_INSTALL_DIR/go` |
 | `GO_DOWNLOAD_DIR`  | `~/Downloads`  | Where the tarball is downloaded (removed after install) |
 
 **Examples**
 
 ```bash
+# Pin a specific version instead of latest
+GO_VERSION=1.22.4 ./install-go.sh
+
 # Install into your home directory (no sudo needed)
 GO_INSTALL_DIR=$HOME/.local ./install-go.sh
 
@@ -48,7 +72,8 @@ GO_DOWNLOAD_DIR=/tmp ./install-go.sh
 **Behavior**
 
 - Detects OS (Linux, macOS) and arch (amd64, arm64, armv6l, 386).
-- Queries `go.dev/VERSION` for the latest stable version — never hardcoded.
+- Installs `GO_VERSION` if set, otherwise queries `go.dev/VERSION` for the
+  latest stable version — never hardcoded.
 - Skips entirely if that exact version is already installed; reports an
   upgrade otherwise.
 - Verifies the download's SHA-256 against the official `.sha256` file before

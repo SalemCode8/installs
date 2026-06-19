@@ -7,10 +7,15 @@
 #
 # Usage:
 #   ./install-go.sh                 # install latest stable into /usr/local
+#   GO_VERSION=1.22.4 ./install-go.sh             # install a specific version
 #   GO_INSTALL_DIR=$HOME/.local ./install-go.sh   # custom install prefix
 #   GO_DOWNLOAD_DIR=$HOME/Downloads ./install-go.sh  # custom download dir
 #
 set -euo pipefail
+
+# Which Go version to install. Empty means "latest stable" (resolved from
+# go.dev). Accepts "1.22.4" or "go1.22.4" — the "go" prefix is optional.
+GO_VERSION="${GO_VERSION:-}"
 
 # Where Go gets installed (the archive unpacks to ${INSTALL_DIR}/go).
 INSTALL_DIR="${GO_INSTALL_DIR:-/usr/local}"
@@ -43,10 +48,19 @@ case "$(uname -m)" in
     *)              err "unsupported architecture: $(uname -m)" ;;
 esac
 
-# --- Find the latest stable version --------------------------------------
-info "Querying go.dev for the latest stable version..."
-VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
-[ -n "${VERSION:-}" ] || err "could not determine latest Go version"
+# --- Resolve the version to install --------------------------------------
+if [ -n "$GO_VERSION" ]; then
+    # Normalize: allow "1.22.4" as well as "go1.22.4".
+    case "$GO_VERSION" in
+        go*) VERSION="$GO_VERSION" ;;
+        *)   VERSION="go${GO_VERSION}" ;;
+    esac
+    info "Using requested version ${VERSION}"
+else
+    info "Querying go.dev for the latest stable version..."
+    VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)"
+    [ -n "${VERSION:-}" ] || err "could not determine latest Go version"
+fi
 
 # Skip if the requested version is already installed.
 if [ -x "${GO_ROOT}/bin/go" ]; then
@@ -68,7 +82,7 @@ ARCHIVE="${DOWNLOAD_DIR}/${TARBALL}"
 info "Downloading ${URL}"
 info "  -> ${ARCHIVE}"
 curl -fSL --progress-bar -o "$ARCHIVE" "$URL" \
-    || err "download failed (is ${OS}-${ARCH} a published build?)"
+    || err "download failed (does ${VERSION} have a published ${OS}-${ARCH} build?)"
 
 # --- Verify checksum ------------------------------------------------------
 info "Verifying checksum..."
