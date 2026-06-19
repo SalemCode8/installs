@@ -85,9 +85,18 @@ curl -fSL --progress-bar -o "$ARCHIVE" "$URL" \
     || err "download failed (does ${VERSION} have a published ${OS}-${ARCH} build?)"
 
 # --- Verify checksum ------------------------------------------------------
+# go.dev no longer serves a raw "<file>.sha256" (it redirects to an HTML page),
+# so pull the official SHA-256 from the download JSON API and match our file.
 info "Verifying checksum..."
-EXPECTED="$(curl -fsSL "${URL}.sha256")" \
-    || err "could not fetch checksum"
+JSON="$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all')" \
+    || err "could not fetch checksum metadata"
+EXPECTED="$(printf '%s\n' "$JSON" \
+    | grep -A5 "\"filename\": \"${TARBALL}\"," \
+    | grep '"sha256":' \
+    | head -n1 \
+    | grep -oE '[a-f0-9]{64}')"
+[ -n "$EXPECTED" ] \
+    || err "no published checksum found for ${TARBALL}"
 ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 [ "$EXPECTED" = "$ACTUAL" ] \
     || err "checksum mismatch: expected $EXPECTED, got $ACTUAL"
