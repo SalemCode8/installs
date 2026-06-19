@@ -8,11 +8,16 @@
 # Usage:
 #   ./install-go.sh                 # install latest stable into /usr/local
 #   GO_INSTALL_DIR=$HOME/.local ./install-go.sh   # custom install prefix
+#   GO_DOWNLOAD_DIR=$HOME/Downloads ./install-go.sh  # custom download dir
 #
 set -euo pipefail
 
+# Where Go gets installed (the archive unpacks to ${INSTALL_DIR}/go).
 INSTALL_DIR="${GO_INSTALL_DIR:-/usr/local}"
 GO_ROOT="${INSTALL_DIR}/go"
+
+# Where the tarball is downloaded before extraction.
+DOWNLOAD_DIR="${GO_DOWNLOAD_DIR:-${HOME}/Downloads}"
 
 err() { printf 'error: %s\n' "$*" >&2; exit 1; }
 info() { printf '==> %s\n' "$*"; }
@@ -56,19 +61,20 @@ fi
 TARBALL="${VERSION}.${OS}-${ARCH}.tar.gz"
 URL="https://go.dev/dl/${TARBALL}"
 
-# --- Download into a temp dir --------------------------------------------
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
+# --- Download to the download dir ----------------------------------------
+mkdir -p "$DOWNLOAD_DIR" || err "could not create download dir: $DOWNLOAD_DIR"
+ARCHIVE="${DOWNLOAD_DIR}/${TARBALL}"
 
 info "Downloading ${URL}"
-curl -fSL --progress-bar -o "${TMPDIR}/${TARBALL}" "$URL" \
+info "  -> ${ARCHIVE}"
+curl -fSL --progress-bar -o "$ARCHIVE" "$URL" \
     || err "download failed (is ${OS}-${ARCH} a published build?)"
 
 # --- Verify checksum ------------------------------------------------------
 info "Verifying checksum..."
 EXPECTED="$(curl -fsSL "${URL}.sha256")" \
     || err "could not fetch checksum"
-ACTUAL="$(sha256sum "${TMPDIR}/${TARBALL}" | awk '{print $1}')"
+ACTUAL="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 [ "$EXPECTED" = "$ACTUAL" ] \
     || err "checksum mismatch: expected $EXPECTED, got $ACTUAL"
 
@@ -84,7 +90,10 @@ info "Removing any previous install at ${GO_ROOT}"
 $SUDO rm -rf "$GO_ROOT"
 
 info "Extracting to ${INSTALL_DIR}"
-$SUDO tar -C "$INSTALL_DIR" -xzf "${TMPDIR}/${TARBALL}"
+$SUDO tar -C "$INSTALL_DIR" -xzf "$ARCHIVE"
+
+info "Removing downloaded archive ${ARCHIVE}"
+rm -f "$ARCHIVE"
 
 # --- Report and PATH hint -------------------------------------------------
 info "Installed: $("${GO_ROOT}/bin/go" version)"
